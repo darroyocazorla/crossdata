@@ -35,7 +35,7 @@ object CassandraQueryProcessor extends SQLLikeQueryProcessorUtils with SQLLikeUD
   val DefaultLimit = 10000
   type ColumnName = String
 
-  case class CassandraQueryProcessorContext(val udfs: Map[String, NativeUDF]) extends SQLLikeUDFQueryProcessorUtils.ContextWithUDFs
+  case class CassandraQueryProcessorContext(udfs: Map[String, NativeUDF]) extends SQLLikeUDFQueryProcessorUtils.ContextWithUDFs
   override type ProcessingContext = CassandraQueryProcessorContext
 
   case class CassandraPlan(basePlan: BaseLogicalPlan, limit: Option[Int]){

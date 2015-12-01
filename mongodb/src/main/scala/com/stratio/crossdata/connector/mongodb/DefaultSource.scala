@@ -17,14 +17,14 @@ package com.stratio.crossdata.connector.mongodb
 
 import com.mongodb.DBCollection
 import com.mongodb.casbah.MongoDB
-
-import com.stratio.crossdata.connector.TableInventory
+import com.stratio.crossdata.connector.FunctionInventory.UDF
 import com.stratio.crossdata.connector.TableInventory.Table
+import com.stratio.crossdata.connector.{FunctionInventory, TableInventory}
 import com.stratio.datasource.Config._
-import com.stratio.datasource.mongodb.{DefaultSource => ProviderDS, MongodbConfigBuilder, MongodbCredentials, MongodbSSLOptions, MongodbConfig, MongodbRelation}
+import com.stratio.datasource.mongodb.{DefaultSource => ProviderDS, MongodbConfig, MongodbConfigBuilder, MongodbCredentials, MongodbRelation, MongodbSSLOptions}
 import org.apache.spark.sql.SaveMode._
-import org.apache.spark.sql.sources.{DataSourceRegister, BaseRelation}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
 /**
@@ -32,7 +32,7 @@ import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
  * the syntax CREATE TEMPORARY TABLE ... USING com.stratio.deep.mongodb.
  * Required options are detailed in [[com.stratio.datasource.mongodb.MongodbConfig]]
  */
-class DefaultSource extends ProviderDS with TableInventory with DataSourceRegister {
+class DefaultSource extends ProviderDS with TableInventory with FunctionInventory {
 
   import MongodbConfig._
 
@@ -174,4 +174,9 @@ class DefaultSource extends ProviderDS with TableInventory with DataSourceRegist
     finalMap
   }
 
+  //Get builtin functions manifest
+  override def nativeBuiltinFunctions: Seq[UDF] =
+    Seq(
+      UDF("now", None, StructType(Nil), StringType)
+    )
 }

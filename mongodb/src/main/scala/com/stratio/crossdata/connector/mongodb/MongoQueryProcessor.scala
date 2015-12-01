@@ -26,10 +26,11 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.{Row, sources}
-import org.apache.spark.sql.sources.CatalystToCrossdataAdapter.{FilterReport, SimpleLogicalPlan}
+import org.apache.spark.sql.crossdata.execution.NativeUDF
+import org.apache.spark.sql.sources.CatalystToCrossdataAdapter.{AggregationLogicalPlan, BaseLogicalPlan, FilterReport}
 import org.apache.spark.sql.sources.{CatalystToCrossdataAdapter, Filter => SourceFilter}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Row, sources}
 
 object MongoQueryProcessor {
 
@@ -39,46 +40,58 @@ object MongoQueryProcessor {
 
   def apply(logicalPlan: LogicalPlan, config: Config, schemaProvided: Option[StructType] = None) = new MongoQueryProcessor(logicalPlan, config, schemaProvided)
 
-  def buildNativeQuery(requiredColums: Seq[ColumnName], filters: Array[SourceFilter], config: Config): (DBObject, DBObject) = {
-    (filtersToDBObject(filters)(config), selectFields(requiredColums))
+
+  case class MongoDBPlan(basePlan: BaseLogicalPlan, limit: Option[Int]){
+    def projects: Seq[NamedExpression] = basePlan.projects
+    def filters: Array[SourceFilter] = basePlan.filters
+    def udfsMap: Map[Attribute, NativeUDF] = basePlan.udfsMap
   }
 
-  def filtersToDBObject(sFilters: Array[SourceFilter], parentFilterIsNot: Boolean = false)(implicit config: Config): DBObject = {
-    val queryBuilder: QueryBuilder = QueryBuilder.start
+  def buildNativeQuery(requiredColums: Seq[ColumnName], filters: Array[SourceFilter], udfsMap: Map[Attribute, NativeUDF], config: Config): (DBObject, DBObject) = {
+    (filtersToDBObject(filters, udfsMap)(config), selectFields(requiredColums))
+  }
 
-    if (parentFilterIsNot) queryBuilder.not()
-    sFilters.foreach {
-      case sources.EqualTo(attribute, value) =>
-        queryBuilder.put(attribute).is(correctIdValue(attribute, value))
-      case sources.GreaterThan(attribute, value) =>
-        queryBuilder.put(attribute).greaterThan(correctIdValue(attribute, value))
-      case sources.GreaterThanOrEqual(attribute, value) =>
-        queryBuilder.put(attribute).greaterThanEquals(correctIdValue(attribute, value))
-      case sources.In(attribute, values) =>
-        queryBuilder.put(attribute).in(values.map(value => correctIdValue(attribute, value)))
-      case sources.LessThan(attribute, value) =>
-        queryBuilder.put(attribute).lessThan(correctIdValue(attribute, value))
-      case sources.LessThanOrEqual(attribute, value) =>
-        queryBuilder.put(attribute).lessThanEquals(correctIdValue(attribute, value))
-      case sources.IsNull(attribute) =>
-        queryBuilder.put(attribute).is(null)
-      case sources.IsNotNull(attribute) =>
-        queryBuilder.put(attribute).notEquals(null)
-      case sources.And(leftFilter, rightFilter) if !parentFilterIsNot =>
-        queryBuilder.and(filtersToDBObject(Array(leftFilter)), filtersToDBObject(Array(rightFilter)))
-      case sources.Or(leftFilter, rightFilter) if !parentFilterIsNot =>
-        queryBuilder.or(filtersToDBObject(Array(leftFilter)), filtersToDBObject(Array(rightFilter)))
-      case sources.StringStartsWith(attribute, value) if !parentFilterIsNot =>
-        queryBuilder.put(attribute).regex(Pattern.compile("^" + value + ".*$"))
-      case sources.StringEndsWith(attribute, value) if !parentFilterIsNot =>
-        queryBuilder.put(attribute).regex(Pattern.compile("^.*" + value + "$"))
-      case sources.StringContains(attribute, value) if !parentFilterIsNot =>
-        queryBuilder.put(attribute).regex(Pattern.compile(".*" + value + ".*"))
-      case sources.Not(filter) =>
-        filtersToDBObject(Array(filter), true)
+  def filtersToDBObject(sFilters: Array[SourceFilter], udfsMap: Map[Attribute, NativeUDF],  parentFilterIsNot: Boolean = false)(implicit config: Config): DBObject = {
+    // TODO UDFs are blocked by the syntax
+    def filtersToDBObject(sFilters: Array[SourceFilter], parentFilterIsNot: Boolean = false): DBObject = {
+      val queryBuilder: QueryBuilder = QueryBuilder.start
+
+      if (parentFilterIsNot) queryBuilder.not()
+      sFilters.foreach {
+        case sources.EqualTo(attribute, value) =>
+          queryBuilder.put(attribute).is(correctIdValue(attribute, value))
+        case sources.GreaterThan(attribute, value) =>
+          queryBuilder.put(attribute).greaterThan(correctIdValue(attribute, value))
+        case sources.GreaterThanOrEqual(attribute, value) =>
+          queryBuilder.put(attribute).greaterThanEquals(correctIdValue(attribute, value))
+        case sources.In(attribute, values) =>
+          queryBuilder.put(attribute).in(values.map(value => correctIdValue(attribute, value)))
+        case sources.LessThan(attribute, value) =>
+          queryBuilder.put(attribute).lessThan(correctIdValue(attribute, value))
+        case sources.LessThanOrEqual(attribute, value) =>
+          queryBuilder.put(attribute).lessThanEquals(correctIdValue(attribute, value))
+        case sources.IsNull(attribute) =>
+          queryBuilder.put(attribute).is(null)
+        case sources.IsNotNull(attribute) =>
+          queryBuilder.put(attribute).notEquals(null)
+        case sources.StringStartsWith(attribute, value) if !parentFilterIsNot =>
+          queryBuilder.put(attribute).regex(Pattern.compile("^" + value + ".*$"))
+        case sources.StringEndsWith(attribute, value) if !parentFilterIsNot =>
+          queryBuilder.put(attribute).regex(Pattern.compile("^.*" + value + "$"))
+        case sources.StringContains(attribute, value) if !parentFilterIsNot =>
+          queryBuilder.put(attribute).regex(Pattern.compile(".*" + value + ".*"))
+
+        case sources.And(leftFilter, rightFilter) if !parentFilterIsNot =>
+          queryBuilder.and(filtersToDBObject(Array(leftFilter)), filtersToDBObject(Array(rightFilter)))
+        case sources.Or(leftFilter, rightFilter) if !parentFilterIsNot =>
+          queryBuilder.or(filtersToDBObject(Array(leftFilter)), filtersToDBObject(Array(rightFilter)))
+        case sources.Not(filter) =>
+          filtersToDBObject(Array(filter), true)
+      }
+
+      queryBuilder.get
     }
-
-    queryBuilder.get
+    filtersToDBObject(sFilters)
   }
 
     /**
@@ -126,21 +139,37 @@ class MongoQueryProcessor(logicalPlan: LogicalPlan, config: Config, schemaProvid
       None
     } else {
       try {
-        validatedNativePlan.map { case (requiredColumns, filters, limit) =>
-          if (limit.exists(_ == 0)) {
+        validatedNativePlan.map { mongoDBPlan =>
+          if (mongoDBPlan.limit.exists(_ == 0)) {
             Array.empty[Row]
           } else {
-            val (mongoFilters, mongoRequiredColumns) = buildNativeQuery(requiredColumns, filters, config)
+
+
+            // TODO refactor => transformedUDFsMap
+            val transformedUdfsMap = mongoDBPlan.udfsMap map { case (k, v) => k.toString -> v }
+
+            val requiredColumns: Seq[String] = mongoDBPlan.projects.map{
+              namedExpression =>
+                if (transformedUdfsMap contains namedExpression.name)
+                  throw new Error("MongoDB doesn't support UDFs in projections")
+                else
+                  namedExpression.name
+            }
+
+            val (mongoFilters, mongoRequiredColumns) = buildNativeQuery(requiredColumns, mongoDBPlan.filters, mongoDBPlan.udfsMap, config)
             val resultSet = MongodbConnection.withCollectionDo(config) { collection =>
               logDebug(s"Executing native query: filters => $mongoFilters projects => $mongoRequiredColumns")
               val cursor = collection.find(mongoFilters, mongoRequiredColumns)
-              val result = cursor.limit(limit.getOrElse(DefaultLimit)).toArray[DBObject]
+              val result = cursor.limit(mongoDBPlan.limit.getOrElse(DefaultLimit)).toArray[DBObject]
               cursor.close()
               result
             }
             sparkResultFromMongodb(requiredColumns, schemaProvided.get, resultSet)
           }
         }
+
+
+
       } catch {
         case exc: Exception =>
           log.warn(s"Exception executing the native query $logicalPlan", exc.getMessage); None
@@ -150,10 +179,10 @@ class MongoQueryProcessor(logicalPlan: LogicalPlan, config: Config, schemaProvid
   }
 
 
-  def validatedNativePlan: Option[(Seq[ColumnName], Array[SourceFilter], Limit)] = {
+  def validatedNativePlan: Option[MongoDBPlan] = {
     lazy val limit: Option[Int] = logicalPlan.collectFirst { case Limit(Literal(num: Int, _), _) => num }
 
-    def findProjectsFilters(lplan: LogicalPlan): Option[(Seq[ColumnName], Array[SourceFilter])] = lplan match {
+    def findProjectsFilters(lplan: LogicalPlan): Option[MongoDBPlan] = lplan match {
 
       case Limit(_, child) =>
         findProjectsFilters(child)
@@ -161,15 +190,15 @@ class MongoQueryProcessor(logicalPlan: LogicalPlan, config: Config, schemaProvid
       case PhysicalOperation(projectList, filterList, _) =>
         CatalystToCrossdataAdapter.getConnectorLogicalPlan(logicalPlan, projectList, filterList) match {
           case (_, FilterReport(filtersIgnored, _)) if filtersIgnored.nonEmpty => None
-          case (SimpleLogicalPlan(projects, filters, _), _) => Some(projects.map(_.name), filters)
-          case _ => ??? // TODO
+          case (AggregationLogicalPlan(_,_,_,_), _) => None
+          case (basePlan, _) => Some(MongoDBPlan(basePlan,limit))
         }
 
     }
 
-    findProjectsFilters(logicalPlan).collect{ case (p, f) if checkNativeFilters(f) => (p,f,limit)}
-  }
+    findProjectsFilters(logicalPlan).collect{ case mp if (checkNativeFilters(mp.filters)) => mp}
 
+  }
 
   private[this] def checkNativeFilters(filters: Seq[SourceFilter]): Boolean = filters.forall {
     case _: sources.EqualTo => true
@@ -188,7 +217,6 @@ class MongoQueryProcessor(logicalPlan: LogicalPlan, config: Config, schemaProvid
     case sources.Not(filter) => checkNativeFilters(Array(filter))
     // TODO add more filters
     case _ => false
-
   }
 
   private[this] def sparkResultFromMongodb(requiredColumns: Seq[ColumnName], schema: StructType, resultSet: Array[DBObject]): Array[Row] = {
