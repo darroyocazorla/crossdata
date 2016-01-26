@@ -6,4 +6,16 @@ case class Cube(name: String, groupByExprs: Seq[ColumnIdentifier], aggregationsE
 
 case class SparktaView(cube: Cube, output: Seq[SparktaOutput])
 
-case class SparktaOutput(source: String, schema: StructType, options: Map[String, String])
+object OutputSource extends Enumeration{
+  type OutputSource = Value
+  val Cassandra = Value("cassandra")
+  val MongoDB = Value("mongodb")
+  val Elasticsearch = Value("elasticsearch")
+  val Parquet = Value("parquet")
+  val CSV = Value("com.databricks.spark.csv")
+  val Solr = Value("solr") //Lucid-words datasource
+
+}
+import OutputSource._
+case class SparktaOutput(source: OutputSource, schema: StructType, options: Map[String, String])
+
