@@ -105,7 +105,7 @@ class XDContext private (@transient val sc: SparkContext,
   @transient
   class XDPlanner extends SparkPlanner with XDStrategies {
 
-    override def strategies: Seq[Strategy] = Seq(XDDDLStrategy, ExtendedDataSourceStrategy) ++ super.strategies
+    override def strategies: Seq[Strategy] = Seq(XDDDLStrategy, ExtendedDataSourceStrategy) ++ super.strategies ++ Seq(SparktaStrategy)
   }
 
   @transient

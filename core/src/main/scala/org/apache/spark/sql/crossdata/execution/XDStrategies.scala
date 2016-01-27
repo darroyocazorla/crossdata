@@ -15,16 +15,15 @@
  */
 package org.apache.spark.sql.crossdata.execution
 
-import org.apache.spark.Logging
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.crossdata.XDContext
-import org.apache.spark.sql.execution.datasources.{CreateTableUsingAsSelect, CreateTableUsing}
-import org.apache.spark.sql.execution.{ExecutedCommand, SparkPlan, SparkStrategies}
-
-import org.apache.spark.sql.Strategy
+import org.apache.spark.sql.crossdata.sparkta.SparktaRelation
+import org.apache.spark.sql.execution.datasources.CreateTableUsing
+import org.apache.spark.sql.execution.datasources.CreateTableUsingAsSelect
+import org.apache.spark.sql.execution.ExecutedCommand
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.SparkStrategies
 
 trait XDStrategies extends SparkStrategies {
   self: XDContext#XDPlanner =>
@@ -38,6 +37,16 @@ trait XDStrategies extends SparkStrategies {
       case CreateTableUsingAsSelect(tableIdent, provider, false, partitionCols, mode, opts, query) =>
         val cmd = PersistSelectAsTable(tableIdent, provider, partitionCols, mode, opts, query)
         ExecutedCommand(cmd) :: Nil
+
+      case _ => Nil
+    }
+  }
+
+
+  object SparktaStrategy extends Strategy {
+    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+      case SparktaRelation(_, _) =>
+        Nil
 
       case _ => Nil
     }
