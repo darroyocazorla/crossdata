@@ -25,25 +25,28 @@ import java.util.concurrent.atomic.AtomicReference
 import com.stratio.crossdata.connector.FunctionInventory
 import com.typesafe.config.Config
 import org.apache.log4j.Logger
+import org.apache.spark.Logging
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
 import org.apache.spark.sql.crossdata.catalog.XDCatalog
-import org.apache.spark.sql.crossdata.catalyst.analysis.ResolveAggregateAlias
+import org.apache.spark.sql.crossdata.catalyst.analysis._
 import org.apache.spark.sql.crossdata.config.CoreConfig
-import org.apache.spark.sql.crossdata.execution.datasources.ExtendedDataSourceStrategy
-import org.apache.spark.sql.crossdata.execution.datasources.ImportTablesUsingWithOptions
-import org.apache.spark.sql.crossdata.execution.datasources.XDDdlParser
 import org.apache.spark.sql.crossdata.execution.ExtractNativeUDFs
 import org.apache.spark.sql.crossdata.execution.NativeUDF
 import org.apache.spark.sql.crossdata.execution.XDStrategies
+import org.apache.spark.sql.crossdata.execution.datasources.ExtendedDataSourceStrategy
+import org.apache.spark.sql.crossdata.execution.datasources.ImportTablesUsingWithOptions
+import org.apache.spark.sql.crossdata.execution.datasources.XDDdlParser
 import org.apache.spark.sql.crossdata.user.functions.GroupConcat
 import org.apache.spark.sql.execution.ExtractPythonUDFs
-import org.apache.spark.sql.execution.datasources.{PreInsertCastAndRename, PreWriteCheck}
-import org.apache.spark.sql.{DataFrame, SQLContext, Strategy}
+import org.apache.spark.sql.execution.datasources.PreInsertCastAndRename
+import org.apache.spark.sql.execution.datasources.PreWriteCheck
 import org.apache.spark.util.Utils
-import org.apache.spark.Logging
-import org.apache.spark.SparkContext
 
 /**
  * CrossdataContext leverages the features of [[SQLContext]]
@@ -92,6 +95,12 @@ class XDContext private (@transient val sc: SparkContext,
     new Analyzer(catalog, functionRegistry, conf) {
       override val extendedResolutionRules =
         ResolveAggregateAlias ::
+      // Sparkta ..
+        ResolveSparktaRelation ::
+          /*EliminateSparktaSubQueries ::
+          ReplaceAttributeIDs ::
+          ReplaceSparktaCountAll ::*/
+      // ..Sparkta
           ExtractPythonUDFs ::
           ExtractNativeUDFs ::
           PreInsertCastAndRename ::
@@ -102,10 +111,11 @@ class XDContext private (@transient val sc: SparkContext,
       )
     }
 
+
   @transient
   class XDPlanner extends SparkPlanner with XDStrategies {
 
-    override def strategies: Seq[Strategy] = Seq(XDDDLStrategy, ExtendedDataSourceStrategy) ++ super.strategies ++ Seq(SparktaStrategy)
+    override def strategies: Seq[Strategy] = Seq(XDDDLStrategy, ExtendedDataSourceStrategy) ++ super.strategies
   }
 
   @transient
