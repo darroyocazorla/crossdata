@@ -1,0 +1,17 @@
+~/Escritorio/kafka_2.10-0.8.2.2/bin/zookeeper-server-start.sh ~/Escritorio/kafka_2.10-0.8.2.2/config/zookeeper.properties
+~/Escritorio/kafka_2.10-0.8.2.2/bin/kafka-server-start.sh ~/Escritorio/kafka_2.10-0.8.2.2/config/server.properties
+
+~/Escritorio/kafka_2.10-0.8.2.2/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic qalias
+~/Escritorio/kafka_2.10-0.8.2.2/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic ephtable
+
+
+insertar_falla => {"_id": "56b20d3c44d745ce0c8c7a77","index": 0,"guid": "b4541f34-a819-4377-8a58-79a80369eba3","isActive": true,"balance": "$1,896.69","picture": "http://placehold.it/32x32","age": 24,"eyeColor": "brown" }
+
+
+{"_id": "56b20d3c44d745ce0c8c7a77","index": 0}
+
+
+~/Escritorio/kafka_2.10-0.8.2.2/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic outputTopic
+~/Escritorio/kafka_2.10-0.8.2.2/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic joinTopic
+{"id": 1, "msg": "Hello world", "city": "Tolomango"}
+{"id": 2, "msg": "Hello world", "city": "Tolomango"}
