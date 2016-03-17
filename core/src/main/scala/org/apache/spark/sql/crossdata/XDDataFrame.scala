@@ -143,7 +143,7 @@ class XDDataFrame private[sql](@transient override val sqlContext: SQLContext,
   override def collect(): Array[Row] = {
     // If cache doesn't go through native
     if (sqlContext.cacheManager.lookupCachedData(this).nonEmpty) {
-      super.collect()
+      rdd.toLocalIterator.toArray
     } else {
       val nativeQueryExecutor: Option[NativeScan] = findNativeQueryExecutor(queryExecution.optimizedPlan)
       if(nativeQueryExecutor.isEmpty){
@@ -151,7 +151,7 @@ class XDDataFrame private[sql](@transient override val sqlContext: SQLContext,
       } else {
         logInfo(s"Native query: ${queryExecution.simpleString}")
       }
-      nativeQueryExecutor.flatMap(executeNativeQuery).getOrElse(super.collect())
+      nativeQueryExecutor.flatMap(executeNativeQuery).getOrElse(rdd.toLocalIterator.toArray)
     }
   }
 
@@ -276,7 +276,7 @@ class XDDataFrame private[sql](@transient override val sqlContext: SQLContext,
   @DeveloperApi
   def collect(executionType: ExecutionType): Array[Row] = executionType match {
     case Default => collect()
-    case Spark => super.collect()
+    case Spark => rdd.toLocalIterator.toArray
     case Native =>
       val result = findNativeQueryExecutor(queryExecution.optimizedPlan).flatMap(executeNativeQuery)
       if (result.isEmpty) throw new NativeExecutionException
