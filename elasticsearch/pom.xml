@@ -32,6 +32,20 @@
     <description>Crossdata Elasticsearch Connector</description>
     <url>http://stratio.github.io/crossdata/</url>
 
+    <repositories>
+        <!-- add the elasticsearch repo -->
+        <repository>
+            <id>elasticsearch-releases</id>
+            <url>https://maven.elasticsearch.org/releases</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <properties>
         <elastic.datasource.version>2.3.3</elastic.datasource.version>
         <elastic4s.version>2.0.1</elastic4s.version>
@@ -39,8 +53,11 @@
     </properties>
     <dependencies>
 
-
-
+        <dependency>
+            <groupId>org.elasticsearch.plugin</groupId>
+            <artifactId>shield</artifactId>
+            <version>2.0.0</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
