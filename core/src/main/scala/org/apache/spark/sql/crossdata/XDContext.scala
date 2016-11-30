@@ -25,6 +25,7 @@ import java.nio.file.StandardCopyOption
 import java.util.ServiceLoader
 import java.util.concurrent.atomic.AtomicReference
 
+import com.stratio.common.utils.components.logger.impl.SparkLoggerComponent
 import com.stratio.crossdata.connector.FunctionInventory
 import com.stratio.crossdata.security.CrossdataSecurityManager
 import com.stratio.crossdata.util.HdfsUtils
@@ -32,7 +33,7 @@ import com.typesafe.config.ConfigException
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.log4j.Logger
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, CleanupAliases, ComputeCurrentTime, DistinctAggregationRewriter, FunctionRegistry, HiveTypeCoercion, ResolveUpCast}
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, CleanupAliases, FunctionRegistry}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 import org.apache.spark.sql.crossdata.catalog.XDCatalog.{CrossdataApp, IndexIdentifier}
@@ -50,12 +51,12 @@ import org.apache.spark.sql.crossdata.config.CoreConfig
 import org.apache.spark.sql.crossdata.execution.XDQueryExecution
 import org.apache.spark.sql.crossdata.launcher.SparkJobLauncher
 import org.apache.spark.sql.crossdata.user.functions.GroupConcat
-import org.apache.spark.sql.execution.{ExtractPythonUDFs, SparkSQLParser}
-import org.apache.spark.sql.execution.datasources.{PreInsertCastAndRename, PreWriteCheck}
+import org.apache.spark.sql.execution.datasources.PreWriteCheck
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row, SQLConf, SQLContext, Strategy, execution => sparkexecution}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, Strategy, execution => sparkexecution}
 import org.apache.spark.util.Utils
-import org.apache.spark.{Logging, SparkContext}
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.internal.SQLConf
 
 import scala.util.{Failure, Success, Try}
 
@@ -67,7 +68,7 @@ import scala.util.{Failure, Success, Try}
   */
 class XDContext protected(@transient val sc: SparkContext,
                           @transient private val userCoreConfig: Option[Config] = None
-                         ) extends SQLContext(sc) with Logging {
+                         ) extends SQLContext(sc) with SparkLoggerComponent {
   self =>
 
   def this(sc: SparkContext) =

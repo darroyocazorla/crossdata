@@ -17,7 +17,7 @@ package com.stratio.crossdata.util
 
 import java.io.{BufferedInputStream, File, FileInputStream, InputStream}
 
-import akka.event.slf4j.SLF4JLogging
+import com.stratio.common.utils.components.logger.impl.SparkLoggerComponent
 import com.typesafe.config.Config
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
@@ -48,7 +48,7 @@ case class HdfsUtils(dfs: FileSystem, userName: String) {
   }
 }
 
-object HdfsUtils extends SLF4JLogging {
+object HdfsUtils extends SparkLoggerComponent {
 
   private final val DefaultFSProperty = "fs.defaultFS"
   private final val HdfsDefaultPort = 9000

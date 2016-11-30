@@ -18,14 +18,14 @@ package com.stratio.crossdata.driver.config
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
+import com.stratio.common.utils.components.logger.impl.SparkLoggerComponent
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import org.apache.log4j.Logger
-import org.apache.spark.Logging
 
 import scala.collection.JavaConversions._
 import scala.util.Try
 
-class DriverConf extends Logging {
+class DriverConf extends SparkLoggerComponent {
 
   import DriverConf._
 
