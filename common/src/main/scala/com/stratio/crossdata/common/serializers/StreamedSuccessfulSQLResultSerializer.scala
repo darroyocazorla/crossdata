@@ -20,6 +20,7 @@ import org.json4s.JsonAST.{JField, JObject}
 import org.json4s.{CustomSerializer, Extraction, Formats}
 import StreamedSuccessfulSQLResultSerializerHelper._
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.crossdata.serializers.RowSerializer
 import org.apache.spark.sql.types.StructType
 private[serializers] object StreamedSuccessfulSQLResultSerializerHelper {
   val SchemaLabel = "streamedSchema"

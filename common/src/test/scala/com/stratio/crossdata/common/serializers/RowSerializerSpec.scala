@@ -20,6 +20,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.catalyst.util.ArrayBasedMapData
+import org.apache.spark.sql.crossdata.serializers.RowSerializer
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 

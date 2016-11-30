@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.stratio.crossdata.common.serializers
+package org.apache.spark.sql.crossdata.serializers
 
 import java.sql.Timestamp
 
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.{GenericRow, GenericRowWithSchema}
+import org.apache.spark.sql.catalyst.util.{DateTimeUtils, ArrayBasedMapData => ArrayBasedMapDataNotDeprecated, ArrayData => ArrayDataNotDeprecated, MapData => MapDataNotDeprecated}
 import org.apache.spark.sql.types._
 import org.json4s.JsonAST.{JNumber, JObject}
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.apache.spark.sql.catalyst.util.{DateTimeUtils, ArrayBasedMapData => ArrayBasedMapDataNotDeprecated, ArrayData => ArrayDataNotDeprecated, MapData => MapDataNotDeprecated}
-import org.apache.spark.sql.crossdata.serializers.StructTypeSerializer
 
 import scala.collection.mutable
 
